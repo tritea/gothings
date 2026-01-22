@@ -34,7 +34,7 @@ type ThingModel struct {
 }
 
 func (t *ThingModel) Parse(b []byte) error {
-	if err := json.Unmarshal([]byte(b), t); err != nil {
+	if err := json.Unmarshal(b, t); err != nil {
 		return err
 	}
 
@@ -69,7 +69,7 @@ func (t *ThingModel) Parse(b []byte) error {
 	}
 
 	actions := t.Actions
-	for  i := 0; i < len(actions); i++ {
+	for i := 0; i < len(actions); i++ {
 		if err := actions[i].UpdateData(); err != nil {
 			return err
 		}
@@ -80,9 +80,9 @@ func (t *ThingModel) Parse(b []byte) error {
 
 // GetProperty 获取属性,若不存在，返回nil
 func (t *ThingModel) GetProperty(name string) *property.PropertyDescription {
-	for _, p := range t.Properties {
-		if p.Name == name {
-			return &p
+	for i := range t.Properties {
+		if t.Properties[i].Name == name {
+			return &t.Properties[i]
 		}
 	}
 	return nil
@@ -90,9 +90,9 @@ func (t *ThingModel) GetProperty(name string) *property.PropertyDescription {
 
 // GetEvent 获取事件，若不存在，返回nil
 func (t *ThingModel) GetEvent(name string) *events.EventDescription {
-	for _, e := range t.Events {
-		if e.Name == name {
-			return &e
+	for i := range t.Events {
+		if t.Events[i].Name == name {
+			return &t.Events[i]
 		}
 	}
 	return nil
@@ -100,9 +100,9 @@ func (t *ThingModel) GetEvent(name string) *events.EventDescription {
 
 // GetAction 获取活动，若不存在，返回nil
 func (t *ThingModel) GetAction(name string) *actions.ActionDescription {
-	for _, p := range t.Actions {
-		if p.Name == name {
-			return &p
+	for i := range t.Actions {
+		if t.Actions[i].Name == name {
+			return &t.Actions[i]
 		}
 	}
 	return nil
@@ -141,5 +141,124 @@ func (t *ThingModel) ValidateEvent(name string, v interface{}) (bool, error) {
 			return e.Data.Validate(v)
 		}
 	}
-	return false, fmt.Errorf("action not found")
+	return false, fmt.Errorf("event not found")
+}
+
+// ToJSON 将 ThingModel 序列化为 JSON 字节
+func (t *ThingModel) ToJSON() ([]byte, error) {
+	return json.Marshal(t)
+}
+
+// Validate 验证整个 ThingModel 的完整性
+func (t *ThingModel) Validate() error {
+	for _, p := range t.Properties {
+		if p.Data == nil {
+			return fmt.Errorf("property '%s': data field is nil", p.Name)
+		}
+	}
+
+	for _, e := range t.Events {
+		if e.Data == nil {
+			return fmt.Errorf("event '%s': data field is nil", e.Name)
+		}
+	}
+
+	for _, a := range t.Actions {
+		if a.InputData == nil || a.OutputData == nil {
+			return fmt.Errorf("action '%s': data field is nil", a.Name)
+		}
+	}
+
+	return nil
+}
+
+// AddProperty 添加一个属性
+func (t *ThingModel) AddProperty(prop property.PropertyDescription) error {
+	if prop.Name == "" {
+		return fmt.Errorf("property name cannot be empty")
+	}
+	if prop.Data == nil {
+		return fmt.Errorf("property data field cannot be nil")
+	}
+	t.Properties = append(t.Properties, prop)
+	return nil
+}
+
+// AddEvent 添加一个事件
+func (t *ThingModel) AddEvent(evt events.EventDescription) error {
+	if evt.Name == "" {
+		return fmt.Errorf("event name cannot be empty")
+	}
+	if evt.Data == nil {
+		return fmt.Errorf("event data field cannot be nil")
+	}
+	t.Events = append(t.Events, evt)
+	return nil
+}
+
+// AddAction 添加一个动作
+func (t *ThingModel) AddAction(act actions.ActionDescription) error {
+	if act.Name == "" {
+		return fmt.Errorf("action name cannot be empty")
+	}
+	if act.InputData == nil || act.OutputData == nil {
+		return fmt.Errorf("action input/output data field cannot be nil")
+	}
+	t.Actions = append(t.Actions, act)
+	return nil
+}
+
+// RemoveProperty 删除指定名称的属性，返回是否成功
+func (t *ThingModel) RemoveProperty(name string) bool {
+	for i, p := range t.Properties {
+		if p.Name == name {
+			t.Properties = append(t.Properties[:i], t.Properties[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// RemoveEvent 删除指定名称的事件，返回是否成功
+func (t *ThingModel) RemoveEvent(name string) bool {
+	for i, e := range t.Events {
+		if e.Name == name {
+			t.Events = append(t.Events[:i], t.Events[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// RemoveAction 删除指定名称的动作，返回是否成功
+func (t *ThingModel) RemoveAction(name string) bool {
+	for i, a := range t.Actions {
+		if a.Name == name {
+			t.Actions = append(t.Actions[:i], t.Actions[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// GetReadableProperties 获取所有可读的属性
+func (t *ThingModel) GetReadableProperties() []property.PropertyDescription {
+	result := make([]property.PropertyDescription, 0)
+	for _, p := range t.Properties {
+		if p.Readable() {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
+// GetWritableProperties 获取所有可写的属性
+func (t *ThingModel) GetWritableProperties() []property.PropertyDescription {
+	result := make([]property.PropertyDescription, 0)
+	for _, p := range t.Properties {
+		if p.Writable() {
+			result = append(result, p)
+		}
+	}
+	return result
 }

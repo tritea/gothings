@@ -30,9 +30,6 @@ func (e *EventDescription) UpdateData() error {
 		return fmt.Errorf("EventDescription: data field could not be empty")
 	}
 
-	if err := e.Data.Parse(); err != nil {
-		return err
-	}
 	return nil
 }
 

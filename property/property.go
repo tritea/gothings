@@ -54,9 +54,6 @@ func (p *PropertyDescription) UpdateData() error {
 		return fmt.Errorf("PropertyDescription: data field could not be empty")
 	}
 
-	if err := p.Data.Parse(); err != nil {
-		return err
-	}
 	return nil
 }
 

@@ -14,50 +14,22 @@ type DataDescription struct {
 	// Type 数据类型，目前支持 string|number|boolean|integer|array|struct
 	Type DataType `json:"type"`
 
-	// SpecsRaw 对应Type的数据类型，该字段不应该使用，仅作为解析使用
-	SpecsRaw json.RawMessage `json:"specs"`
-
 	// Specs 对应Type的数据类型，供外部使用
-	Specs DataSpec `json:"-"`
+	Specs DataSpec `json:"specs"`
 }
 
-func (d *DataDescription) parseStruct() error {
-	specs := StructDataSpec{}
-	if err := json.Unmarshal(d.SpecsRaw, &specs); err != nil {
+// UnmarshalJSON 自定义 JSON 反序列化
+func (d *DataDescription) UnmarshalJSON(data []byte) error {
+	tmp := struct {
+		Type  DataType        `json:"type"`
+		Specs json.RawMessage `json:"specs"`
+	}{}
+	if err := json.Unmarshal(data, &tmp); err != nil {
 		return err
 	}
-	d.Specs = specs
 
-	for _, spec := range specs {
-		if err := spec.Parse(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+	d.Type = tmp.Type
 
-func (d *DataDescription) parseArray() error {
-	arr := &ArrayDataSpec{}
-	if err := json.Unmarshal(d.SpecsRaw, arr); err != nil {
-		return err
-	}
-	d.Specs = arr
-
-	if arr.Length == 0 {
-		return fmt.Errorf("ArrayDataSpecs: array max length could not be zero")
-	}
-
-	if arr.Data == nil {
-		return fmt.Errorf("ArrayDataSpecs: data field could not be empty")
-	}
-
-	if err := arr.Data.Parse(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (d *DataDescription) Parse() error {
 	switch d.Type {
 	case NumberType:
 		d.Specs = &NumericDataSpec{
@@ -74,19 +46,82 @@ func (d *DataDescription) Parse() error {
 		}
 	case BooleanType:
 		d.Specs = &BooleanDataSpec{}
-	case ArrayType:
-		return d.parseArray()
-	case StructType:
-		return d.parseStruct()
 	case VoidType:
 		d.Specs = &VoidDataSpec{}
-		return nil
-	default:
-		return fmt.Errorf("could not parse description, type [%s] is not supported", d.Type)
 	}
 
-	if err := json.Unmarshal(d.SpecsRaw, d.Specs); err != nil {
+	return d.parseSpecs(tmp.Specs)
+}
+
+// MarshalJSON 自定义 JSON 序列化
+func (d *DataDescription) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type  DataType `json:"type"`
+		Specs DataSpec `json:"specs"`
+	}{
+		Type:  d.Type,
+		Specs: d.Specs,
+	})
+}
+
+func (d *DataDescription) parseSpecs(specs json.RawMessage) error {
+	if d.Type == ArrayType {
+		return d.parseArray(specs)
+	}
+	if d.Type == StructType {
+		return d.parseStruct(specs)
+	}
+
+	if err := json.Unmarshal(specs, d.Specs); err != nil {
 		return err
+	}
+
+	if d.Specs == nil {
+		switch d.Type {
+		case NumberType:
+			d.Specs = &NumericDataSpec{
+				Min:       -math.MaxFloat64,
+				Max:       math.MaxFloat64,
+				Precision: 1e-12,
+			}
+		case StringType:
+			d.Specs = &StringDataSpec{}
+		case IntegerType:
+			d.Specs = &IntegerDataSpec{
+				Min: math.MinInt64,
+				Max: math.MaxInt64,
+			}
+		case BooleanType:
+			d.Specs = &BooleanDataSpec{}
+		case VoidType:
+			d.Specs = &VoidDataSpec{}
+		}
+	}
+	return nil
+}
+
+func (d *DataDescription) parseStruct(specs json.RawMessage) error {
+	ds := StructDataSpec{}
+	if err := json.Unmarshal(specs, &ds); err != nil {
+		return err
+	}
+	d.Specs = ds
+	return nil
+}
+
+func (d *DataDescription) parseArray(specs json.RawMessage) error {
+	arr := &ArrayDataSpec{}
+	if err := json.Unmarshal(specs, arr); err != nil {
+		return err
+	}
+	d.Specs = arr
+
+	if arr.Length == 0 {
+		return fmt.Errorf("ArrayDataSpecs: array max length could not be zero")
+	}
+
+	if arr.Data == nil {
+		return fmt.Errorf("ArrayDataSpecs: data field could not be empty")
 	}
 	return nil
 }

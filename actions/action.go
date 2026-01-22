@@ -30,13 +30,6 @@ func (a *ActionDescription) UpdateData() error {
 		return fmt.Errorf("ActionDescription: data field could not be empty")
 	}
 
-	if err := a.InputData.Parse(); err != nil {
-		return err
-	}
-
-	if err := a.OutputData.Parse(); err != nil {
-		return err
-	}
 	return nil
 }
 

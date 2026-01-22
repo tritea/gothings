@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/AtomPod/thingmodel/thingmodel"
+	"github.com/AtomPod/thingmodel/thingmodel/dataspec"
+	"github.com/AtomPod/thingmodel/thingmodel/property"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -124,4 +126,35 @@ func TestStringValid(t *testing.T) {
 			assert.NotNil(t, err)
 		}
 	}
+}
+
+func TestToJSON(t *testing.T) {
+	thm := &thingmodel.ThingModel{}
+	err := thm.Parse([]byte(dataStr))
+	assert.Nil(t, err)
+
+	jsonBytes, err := thm.ToJSON()
+	assert.Nil(t, err)
+	assert.Contains(t, string(jsonBytes), `"specs":`)
+}
+
+func TestAddAndToJSON(t *testing.T) {
+	thm := &thingmodel.ThingModel{}
+	err := thm.Parse([]byte(dataStr))
+	assert.Nil(t, err)
+
+	prop := property.PropertyDescription{
+		Name: "new_property",
+		Data: &dataspec.DataDescription{
+			Type:  "string",
+			Specs: &dataspec.StringDataSpec{},
+		},
+	}
+	err = thm.AddProperty(prop)
+	assert.Nil(t, err)
+
+	jsonBytes, err := thm.ToJSON()
+	assert.Nil(t, err)
+	assert.Contains(t, string(jsonBytes), `"new_property"`)
+	assert.Contains(t, string(jsonBytes), `"specs"`)
 }
